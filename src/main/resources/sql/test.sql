@@ -1,6 +1,8 @@
-select * from tbl_advertisement;
+select *
+from tbl_advertisement;
 
-select * from tbl_member;
+select *
+from tbl_member;
 
 select * from tbl_file;
 
