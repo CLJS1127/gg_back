@@ -3,6 +3,8 @@ package com.app.globalgates.util;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
 
 public class DateUtils {
     public static String toRelativeTime(String date){
@@ -10,7 +12,12 @@ public class DateUtils {
             return "";
         }
 
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss[.SSSSSS]");
+        DateTimeFormatter formatter = new DateTimeFormatterBuilder()
+                .appendPattern("yyyy-MM-dd HH:mm:ss")
+                .optionalStart()
+                .appendFraction(ChronoField.MICRO_OF_SECOND, 0, 6, true)
+                .optionalEnd()
+                .toFormatter();
         LocalDateTime localDateTime = LocalDateTime.parse(date, formatter);
         LocalDateTime now = LocalDateTime.now();
 

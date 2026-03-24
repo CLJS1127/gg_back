@@ -5654,10 +5654,6 @@ input::-webkit-search-cancel-button, input::-webkit-search-decoration, input::-w
     font-weight: 700;
 }
 
-.MarketplaceAdContent {
-    margin-top: 28px;
-}
-
 .MarketplaceAdView[hidden] {
     display: none !important;
 }
@@ -6518,6 +6514,7 @@ input::-webkit-search-cancel-button, input::-webkit-search-decoration, input::-w
 .MarketplaceAdContent {
     width: min(1180px, 100%);
     margin: 0 auto 0 0;
+    margin-top: 15px;
 }
 
 .MarketplaceAdPageHeader {

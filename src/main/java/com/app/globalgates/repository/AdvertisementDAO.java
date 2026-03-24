@@ -27,13 +27,13 @@ public class AdvertisementDAO {
     }
 
     // 광고 검색 조회
-    public List<AdvertisementDTO> findBySearch(Criteria criteria, AdSearch search) {
-        return advertisementMapper.selectBySearch(criteria, search);
+    public List<AdvertisementDTO> findBySearch(Criteria criteria, AdSearch search, Long memberId) {
+        return advertisementMapper.selectBySearch(criteria, search, memberId);
     }
 
     // 검색된 광고 개수
-    public int getTotal(AdSearch search) {
-        return advertisementMapper.selectTotal(search);
+    public int getTotal(AdSearch search, Long memberId) {
+        return advertisementMapper.selectTotal(search, memberId);
     }
 
     // id로 광고 상세 조회

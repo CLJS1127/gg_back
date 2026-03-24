@@ -15,13 +15,13 @@ const advertisementLayout = (() => {
         emptyState.hidden = true;
 
         const rows = adList.map((ad) => {
-            const statusClass = ad.status === 'ACTIVE' ? 'is-active' : 'is-reported';
-            const statusLabel = ad.status === 'ACTIVE' ? '게시중' : '신고됨';
+            const statusClass = ad.status === 'active' ? 'active' : ad.status === 'expired' ? 'expired' : 'reported';
+            const statusLabel = ad.status === 'active' ? '게시중' : ad.status === 'expired' ? '만료됨' : '신고됨';
 
             const attachmentLabel = (() => {
                 if (!ad.adImageList || ad.adImageList.length === 0) return '선택된 파일이 없습니다.';
-                if (ad.adImageList.length === 1) return ad.adImageList[0];
-                return `${ad.adImageList[0]} 외 ${ad.adImageList.length - 1}개`;
+                if (ad.adImageList.length === 1) return ad.adImageList[0].originalName;
+                return `${ad.adImageList[0].originalName} 외 ${ad.adImageList.length - 1}개`;
             })();
 
             const tr = document.createElement('tr');
@@ -70,8 +70,8 @@ const advertisementLayout = (() => {
     
     const showDetail = (ad) => {
         // 상태값 → CSS 클래스 / 라벨 변환
-        const statusClass = ad.status === 'ACTIVE' ? 'is-active' : 'is-reported';
-        const statusLabel = ad.status === 'ACTIVE' ? '게시중' : '신고됨';
+        const statusClass = ad.status === 'active' ? 'active' : ad.status === 'expired' ? 'expired' : 'reported';
+        const statusLabel = ad.status === 'active' ? '게시중' : ad.status === 'expired' ? '만료됨' : '신고됨';
 
         // 첨부파일 표시 텍스트
         const attachmentLabel = (() => {

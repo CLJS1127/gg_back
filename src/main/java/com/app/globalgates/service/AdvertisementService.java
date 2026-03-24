@@ -1,5 +1,7 @@
 package com.app.globalgates.service;
 
+import com.app.globalgates.aop.annotation.LogStatus;
+import com.app.globalgates.aop.annotation.LogStatusWithReturn;
 import com.app.globalgates.common.enumeration.FileContentType;
 import com.app.globalgates.common.exception.AdvertisementNotFoundException;
 import com.app.globalgates.common.pagination.Criteria;
@@ -34,16 +36,18 @@ public class AdvertisementService {
 
     // 광고 등록
     @Transactional
+    @LogStatus
     public void save(AdvertisementDTO advertisementDTO) {
         advertisementDAO.save(advertisementDTO);
     }
 
     // 광고 이미지 저장
     @Transactional
+    @LogStatus
     public void saveFile(Long adId, MultipartFile image, String s3Key) {
         FileDTO fileDTO = new FileDTO();
         fileDTO.setOriginalName(image.getOriginalFilename());
-        fileDTO.setFileName(s3Key);
+        fileDTO.setFileName(s3Key.substring(s3Key.lastIndexOf("/") + 1));
         fileDTO.setFilePath(s3Key);
         fileDTO.setFileSize(image.getSize());
         fileDTO.setContentType(image.getContentType().contains("image")
@@ -60,25 +64,27 @@ public class AdvertisementService {
     @Cacheable(
             value = "ad:list",
             key = "'page:' + #page" +
-                    " + ':memberId:' + #search.memberId" +
+                    " + ':memberId:' + #memberId" +
                     " + ':keyword:' + (#search.keyword ?: '')" +
                     " + ':filter:' + (#search.filter ?: 'all')"
     )
-    public AdWithPagingDTO list(int page, AdSearch search) {
+    @LogStatusWithReturn
+    public AdWithPagingDTO list(int page, AdSearch search, Long memberId) {
         AdWithPagingDTO adWithPagingDTO = new AdWithPagingDTO();
-        Criteria criteria = new Criteria(page, advertisementDAO.getTotal(search));
+        Criteria criteria = new Criteria(page, advertisementDAO.getTotal(search, memberId));
 
         // 이미지 등록
-        List<AdvertisementDTO> ads = advertisementDAO.findBySearch(criteria, null).stream()
+        List<AdvertisementDTO> ads = advertisementDAO.findBySearch(criteria, null, memberId).stream()
                 .map(adDTO -> {
                     List<FileAdvertisementDTO> images = new ArrayList<>(fileAdvertisementDAO.findByAdId(adDTO.getId()));
-                    if (!images.isEmpty()) {
-                        adDTO.setAdImageList(
-                                images.stream()
-                                        .map(FileAdvertisementDTO::getFilePath)
-                                        .collect(Collectors.toList())
-                        );
-                    }
+                    if(!images.isEmpty()) {
+                        adDTO.setAdImageList(images);
+
+                        List<String> imageUrls = images.stream()
+                                .map(FileAdvertisementDTO::getFilePath)
+                                .collect(Collectors.toList());
+                        adDTO.setImgUrls(imageUrls);
+                    };
                     return adDTO;
                 }).collect(Collectors.toList());
 
@@ -99,24 +105,26 @@ public class AdvertisementService {
 
     // 광고 상세 조회
     @Cacheable(value = "ad:detail", key = "#id")
+    @LogStatusWithReturn
     public AdvertisementDTO getAdvertisementDetail(Long id) {
         AdvertisementDTO adDetail = toDTO(advertisementDAO.findById(id)
                 .orElseThrow(AdvertisementNotFoundException::new));
 
         List<FileAdvertisementDTO> images = fileAdvertisementDAO.findByAdId(adDetail.getId());
         if (!images.isEmpty()) {
-            adDetail.setAdImageList(
-                    images.stream()
-                            .map(FileAdvertisementDTO::getFilePath)
-                            .collect(Collectors.toList())
-            );
-        }
+            adDetail.setAdImageList(images);
 
+            List<String> imageUrls = images.stream()
+                    .map(FileAdvertisementDTO::getFilePath)
+                    .collect(Collectors.toList());
+            adDetail.setImgUrls(imageUrls);
+        }
         return adDetail;
     }
 
     // 광고 이미지 삭제
     @Transactional
+    @LogStatus
     public void delete(Long id) {
         List<FileAdvertisementDTO> files = fileAdvertisementDAO.findByAdId(id);
 

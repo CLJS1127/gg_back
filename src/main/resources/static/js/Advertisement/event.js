@@ -1,19 +1,18 @@
 window.onload = () => {
     // 화면 로딩되면 가장 먼저 유저 정보 조회하기.
-
-    // 로그인한 유저의 정보를 광고 페이지에 반영
-    // (member) => {
-    //     document.querySelector('.AccountTriggerButton .Button-label')
-    //         .textContent = member.name;
-    //     document.querySelector('.User-profileImage')
-    //         .src = member.profileImageUrl;
-    //     document.querySelector('.AdCreativePreviewAvatar')
-    //         .src = member.profileImageUrl;
-    //     document.querySelector('.AdCreativePreviewNameRow strong')
-    //         .textContent = member.name;
-    //     document.querySelector('.AdCreativePreviewHandle')
-    //         .textContent = `@${member.handle}`;
-    // };
+    loginService.info((member) => {
+        if(!member) return;
+        document.querySelector('.AccountTriggerButton .Button-label')
+            .textContent = member.memberName;
+        document.querySelector('.User-profileImage')
+            .src = member.filePath ? member.filePath : "/images/main/global-gates-logo.png";
+        document.querySelector('.AdCreativePreviewAvatar')
+            .src = member.filePath ? member.filePath : "/images/main/global-gates-logo.png";
+        document.querySelector('.AdCreativePreviewNameRow strong')
+            .textContent = member.memberName;
+        document.querySelector('.AdCreativePreviewHandle')
+            .textContent = `${member.memberHandle}`;
+    });
 
     const $ = (selector, scope = document) => scope.querySelector(selector);
     const $$ = (selector, scope = document) =>
@@ -72,7 +71,6 @@ window.onload = () => {
 
         try {
             criteria = await advertisementService.list(++page, {
-                memberId: 1,
                 keyword:  root.listSearch?.value.trim() || "",
                 filter:   state.listStatusFilter
             }, (data) => advertisementLayout.showAdList(data, true)); // ✅ append 모드
@@ -607,8 +605,8 @@ window.onload = () => {
                 purchased_at: new Date().toISOString(),
             };
 
-            const adId = await advertisementService.write(formState, state.attachments, demoResult, 1);
-            await advertisementService.savePayment(demoResult, 1, adId);
+            const adId = await advertisementService.write(formState, state.attachments, demoResult);
+            await advertisementService.savePayment(demoResult, adId);
 
             setText(paymentStatus, "부트페이 SDK가 없어 데모 접수로 반영했습니다.");
             closeModal();
@@ -653,19 +651,19 @@ window.onload = () => {
                 if (confirmed?.event === "done") {
                     updateDraftRowFromForm("부트페이 결제 완료", confirmed.receipt_id || receiptId);
                     const adId = await advertisementService.write(formState, state.attachments, confirmed, 1);
-                    await advertisementService.savePayment(confirmed, 1, adId);
+                    await advertisementService.savePayment(confirmed, adId);
 
                 } else if (confirmed?.event === "issued") {
                     updateDraftRowFromForm("가상계좌 입금 대기", confirmed.receipt_id || receiptId);
                     const issuedResult = { ...confirmed, method: confirmed.method || "가상계좌", purchased_at: null };
                     const adId = await advertisementService.write(formState, state.attachments, issuedResult, 1);
-                    await advertisementService.savePayment(issuedResult, 1, adId);
+                    await advertisementService.savePayment(issuedResult, adId);
                 }
 
             } else {
                 updateDraftRowFromForm("부트페이 결제 완료", response?.receipt_id || receiptId);
                 const adId = await advertisementService.write(formState, state.attachments, response, 1);
-                await advertisementService.savePayment(response, 1, adId);
+                await advertisementService.savePayment(response, adId);
             }
 
             setText(paymentStatus, "결제가 완료되어 광고가 접수되었습니다.");
@@ -706,7 +704,6 @@ window.onload = () => {
             // ✅ list 뷰 진입 시 resetAndLoadList로 교체
             if (target === "list") {
                 await resetAndLoadList({
-                    memberId: 1,
                     keyword:  "",
                     filter:   "all"
                 });
@@ -778,7 +775,6 @@ window.onload = () => {
             clearTimeout(state.searchTimer);
             state.searchTimer = window.setTimeout(async () => {
                 await resetAndLoadList({
-                    memberId: 1,
                     keyword:  event.target.value.trim(),
                     filter:   state.listStatusFilter
                 });
@@ -792,7 +788,6 @@ window.onload = () => {
         if (event.target.matches("[data-list-status-filter]")) {
             state.listStatusFilter = event.target.value || "all";
             await resetAndLoadList({
-                memberId: 1,
                 keyword:  root.listSearch?.value.trim() || "",
                 filter:   state.listStatusFilter
             });
