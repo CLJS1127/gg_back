@@ -15,9 +15,26 @@ const loginService = (() => {
         return await response.json();
     }
 
+    const info = async (callback) => {
+        const response = await fetch(`/api/member/info`);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || "Fetch error");
+        }
+
+        const member = await response.json();
+
+        if(callback) {
+            callback(member);
+        }
+
+        return member;
+    }
+
 
 
     return {
-        login: login
+        login: login,
+        info: info,
     }
 })();

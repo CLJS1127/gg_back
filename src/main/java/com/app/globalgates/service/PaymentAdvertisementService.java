@@ -1,5 +1,7 @@
 package com.app.globalgates.service;
 
+import com.app.globalgates.aop.annotation.LogStatus;
+import com.app.globalgates.aop.annotation.LogStatusWithReturn;
 import com.app.globalgates.common.enumeration.PaymentStatus;
 import com.app.globalgates.domain.PaymentAdvertisementVO;
 import com.app.globalgates.dto.PaymentAdvertisementDTO;
@@ -15,11 +17,13 @@ public class PaymentAdvertisementService {
 
     // 결제 정보 저장
     @Transactional
+    @LogStatus
     public void save(PaymentAdvertisementDTO paymentAdvertisementDTO) {
         paymentAdvertisementDAO.save(paymentAdvertisementDTO.toVO());
     }
 
     // id로 결제 정보 조회
+    @LogStatusWithReturn
     public PaymentAdvertisementDTO findById(Long id) {
         PaymentAdvertisementVO vo = paymentAdvertisementDAO.findById(id)
                 .orElseThrow(() -> new RuntimeException("결제 정보를 찾을 수 없습니다."));
@@ -27,6 +31,7 @@ public class PaymentAdvertisementService {
     }
 
     // receiptId로 결제 정보 조회 (웹훅 처리용)
+    @LogStatusWithReturn
     public PaymentAdvertisementDTO findByReceiptId(String receiptId) {
         PaymentAdvertisementVO vo = paymentAdvertisementDAO.findByReceiptId(receiptId)
                 .orElseThrow(() -> new RuntimeException("결제 정보를 찾을 수 없습니다."));
@@ -35,6 +40,7 @@ public class PaymentAdvertisementService {
 
     // 가상계좌 입금 완료 시 상태 업데이트 (웹훅 처리용)
     @Transactional
+    @LogStatus
     public void updateStatus(String receiptId, PaymentStatus paymentStatus, String paidAt) {
         paymentAdvertisementDAO.updateStatus(receiptId, paymentStatus, paidAt);
     }

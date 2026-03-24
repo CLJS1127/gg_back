@@ -9,7 +9,6 @@ import lombok.ToString;
 @ToString
 @NoArgsConstructor
 public class AdSearch {
-    private Long memberId;
     private String keyword;
     private String filter;
 }

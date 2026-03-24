@@ -2,16 +2,14 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.app.globalgates.mapper.AdvertisementMapper">
     <sql id="search">
-        <if test="search != null and search.memberId != null">
-            advertiser_id = #{search.memberId}
-        </if>
+        advertiser_id = #{memberId}
         <if test="search.keyword != null and search.keyword != ''.toString()">
             AND (
-                headline ILIKE '%' || #{search.keyword} || '%'
-                OR (
-                title ILIKE '%' || #{search.keyword} || '%'
-                AND NOT (headline ILIKE '%' || #{search.keyword} || '%')
-                )
+            headline ILIKE '%' || #{search.keyword} || '%'
+            OR (
+            title ILIKE '%' || #{search.keyword} || '%'
+            AND NOT (headline ILIKE '%' || #{search.keyword} || '%')
+            )
             )
         </if>
         <choose>

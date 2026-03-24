@@ -8,6 +8,7 @@ import com.app.globalgates.service.MemberService;
 import com.app.globalgates.service.S3Service;
 import java.io.IOException;
 import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -110,5 +111,14 @@ public class MemberAPIController {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "로그인실패 : " + e.getMessage()));
         }
+    }
+
+    @GetMapping("info")
+    public MemberDTO getUserInfo(HttpServletRequest request) {
+        String token = jwtTokenProvider.parseTokenFromHeader(request);
+        String memberEmail = jwtTokenProvider.getUsername(token);
+        MemberDTO memberDTO = memberService.getMember(memberEmail);
+
+        return memberDTO;
     }
 }

@@ -1,5 +1,6 @@
 package com.app.globalgates.controller.payment;
 
+import com.app.globalgates.auth.CustomUserDetails;
 import com.app.globalgates.common.enumeration.PaymentStatus;
 import com.app.globalgates.dto.PaymentAdvertisementDTO;
 import com.app.globalgates.service.AdvertisementService;
@@ -7,13 +8,16 @@ import com.app.globalgates.service.PaymentAdvertisementService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/payment")
+@RequestMapping("/api/payment/**")
 @Slf4j
 public class PaymentController {
     private final PaymentAdvertisementService paymentAdvertisementService;
@@ -21,7 +25,10 @@ public class PaymentController {
 
     // 결제 정보 저장
     @PostMapping("save")
-    public ResponseEntity<?> save(@RequestBody PaymentAdvertisementDTO paymentAdvertisementDTO) {
+    public ResponseEntity<?> save(@RequestBody PaymentAdvertisementDTO paymentAdvertisementDTO,
+                                  @AuthenticationPrincipal CustomUserDetails userDetails) {
+        paymentAdvertisementDTO.setMemberId(userDetails.getId());
+
         log.info("받아온 결제 정보: {}", paymentAdvertisementDTO);
         paymentAdvertisementService.save(paymentAdvertisementDTO);
         return ResponseEntity.ok("결제 정보 저장 성공!");

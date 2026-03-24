@@ -67,22 +67,23 @@ public class AdvertisementServiceTest {
     @Test
     public void testList() {
         AdSearch search = new AdSearch();
-        search.setMemberId(1L);
-        Criteria criteria = new Criteria(1, advertisementDAO.getTotal(search));
+        Long memberId = 1L;
+        Criteria criteria = new Criteria(1, advertisementDAO.getTotal(search, memberId));
 
         AdWithPagingDTO adWithPagingDTO = new AdWithPagingDTO();
 
         // 이미지 등록
-        List<AdvertisementDTO> ads = advertisementDAO.findBySearch(criteria, null).stream()
+        List<AdvertisementDTO> ads = advertisementDAO.findBySearch(criteria, null, memberId).stream()
                 .map(adDTO -> {
                     List<FileAdvertisementDTO> images = new ArrayList<>(fileAdvertisementDAO.findByAdId(adDTO.getId()));
-                    if (!images.isEmpty()) {
-                        adDTO.setAdImageList(
-                                images.stream()
-                                        .map(FileAdvertisementDTO::getFilePath)
-                                        .collect(Collectors.toList())
-                        );
-                    }
+                    if(!images.isEmpty()) {
+                        adDTO.setAdImageList(images);
+
+                        List<String> imageUrls = images.stream()
+                                .map(FileAdvertisementDTO::getFilePath)
+                                .collect(Collectors.toList());
+                        adDTO.setImgUrls(imageUrls);
+                    };
                     return adDTO;
                 }).collect(Collectors.toList());
 
@@ -112,11 +113,12 @@ public class AdvertisementServiceTest {
         // 이미지 찾아오기
         List<FileAdvertisementDTO> images = fileAdvertisementDAO.findByAdId(adDetail.getId());
         if (!images.isEmpty()) {
-            adDetail.setAdImageList(
-                    images.stream()
-                            .map(FileAdvertisementDTO::getFilePath)
-                            .collect(Collectors.toList())
-            );
+            adDetail.setAdImageList(images);
+
+            List<String> imageUrls = images.stream()
+                    .map(FileAdvertisementDTO::getFilePath)
+                    .collect(Collectors.toList());
+            adDetail.setImgUrls(imageUrls);
         }
 
         log.info("받아온 광고 상세 정보: {}", adDetail);

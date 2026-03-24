@@ -19,10 +19,10 @@ public interface AdvertisementMapper {
     public List<AdvertisementDTO> selectAll();
 
     // 광고 검색 조회
-    public List<AdvertisementDTO> selectBySearch(@Param("criteria") Criteria criteria, @Param("search") AdSearch search);
+    public List<AdvertisementDTO> selectBySearch(@Param("criteria") Criteria criteria, @Param("search") AdSearch search, @Param("memberId") Long memberId);
 
     // 광고 전체 개수
-    public int selectTotal(@Param("search") AdSearch search);
+    public int selectTotal(@Param("search") AdSearch search, @Param("memberId")Long memberId);
 
     // id로 광고 상세 조회
     public Optional<AdvertisementVO> selectById(Long id);
