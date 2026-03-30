@@ -3,6 +3,7 @@ package com.app.globalgates.controller.main;
 import com.app.globalgates.auth.JwtTokenProvider;
 import com.app.globalgates.dto.BlockDTO;
 import com.app.globalgates.dto.MemberDTO;
+import com.app.globalgates.dto.MemberProfileFileDTO;
 import com.app.globalgates.dto.PostDTO;
 import com.app.globalgates.dto.ReportDTO;
 import com.app.globalgates.service.BlockService;
@@ -33,25 +34,6 @@ public class MainController {
     private final BlockService blockService;
     private final ReportService reportService;
 
-//    메인 테스트 페이지
-    @GetMapping("/maintest")
-    public String goToMainTest(HttpServletRequest request, Model model) {
-        String token = jwtTokenProvider.parseTokenFromHeader(request);
-        String loginId = jwtTokenProvider.getUsername(token);
-        MemberDTO member = memberService.getMember(loginId);
-
-        if (member.getFileName() != null && !member.getFileName().isEmpty()) {
-            try {
-                member.setFileName(s3Service.getPresignedUrl(member.getFileName(), Duration.ofMinutes(10)));
-            } catch (IOException e) {
-                member.setFileName(null);
-            }
-        }
-
-        model.addAttribute("member", member);
-        return "main/maintest";
-    }
-
 //    메인 페이지
     @GetMapping("/main")
     public String goToMain(HttpServletRequest request, Model model) {
@@ -59,9 +41,11 @@ public class MainController {
         String loginId = jwtTokenProvider.getUsername(token);
         MemberDTO member = memberService.getMember(loginId);
 
-        if (member.getFileName() != null && !member.getFileName().isEmpty()) {
+        // 프로필 이미지를 별도 조회 (Redis 캐시된 member에는 파일 정보가 없을 수 있음)
+        MemberProfileFileDTO profileFile = memberService.getProfileFile(member.getId());
+        if (profileFile != null && profileFile.getFileName() != null) {
             try {
-                member.setFileName(s3Service.getPresignedUrl(member.getFileName(), Duration.ofMinutes(10)));
+                member.setFileName(s3Service.getPresignedUrl(profileFile.getFileName(), Duration.ofMinutes(10)));
             } catch (IOException e) {
                 member.setFileName(null);
             }
@@ -95,9 +79,10 @@ public class MainController {
         String token = jwtTokenProvider.parseTokenFromHeader(request);
         String loginId = jwtTokenProvider.getUsername(token);
         MemberDTO loginMember = memberService.getMember(loginId);
-        if (loginMember.getFileName() != null && !loginMember.getFileName().isEmpty()) {
+        MemberProfileFileDTO loginProfileFile = memberService.getProfileFile(loginMember.getId());
+        if (loginProfileFile != null && loginProfileFile.getFileName() != null) {
             try {
-                loginMember.setFileName(s3Service.getPresignedUrl(loginMember.getFileName(), Duration.ofMinutes(10)));
+                loginMember.setFileName(s3Service.getPresignedUrl(loginProfileFile.getFileName(), Duration.ofMinutes(10)));
             } catch (IOException e) {
                 loginMember.setFileName(null);
             }

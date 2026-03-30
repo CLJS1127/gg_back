@@ -7,6 +7,7 @@ select
 from tbl_ad_file af
 join tbl_file f on af.id = f.id;
 
+-- 녹음 파일 조회하는 view
 create view vw_file_recoding as
 select
     f.id, f.original_name, f.file_name, f.file_path, f.file_size,
@@ -32,11 +33,20 @@ select p.id,
            join tbl_file f on mpf.id = f.id
         where mpf.member_id = p.member_id and mpf.profile_image_type = 'profile'
         limit 1) as member_profile_file_name,
-       (select count(*) from tbl_post_like pl where pl.post_id = p.id) as like_count,
-       (select count(*) from tbl_post rp where rp.reply_post_id = p.id) as reply_count,
-       (select count(*) from tbl_bookmark b where b.post_id = p.id) as bookmark_count
+       (select count(*) from tbl_post_like pl
+                        where pl.post_id = p.id) as like_count,
+       (select count(*) from tbl_post rp
+                        where rp.reply_post_id = p.id
+                          and rp.post_status = 'active')
+       + (select count(*) from tbl_post rp2 where rp2.reply_post_id in (select rp3.id from tbl_post rp3 where rp3.reply_post_id = p.id) and rp2.post_status = 'active') as reply_count,
+       (select count(*) from tbl_bookmark b where b.post_id = p.id) as bookmark_count,
+       bg.badge_type,
+       p.community_id,
+       c.community_name
 from tbl_post p
          join tbl_member m on p.member_id = m.id
+         left join tbl_badge bg on bg.member_id = p.member_id
+         left join tbl_community c on p.community_id = c.id
 where p.post_status = 'active'
   and p.reply_post_id is null;
 

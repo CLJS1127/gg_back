@@ -148,7 +148,7 @@ create table tbl_post (
     id               bigint      generated always as identity primary key,
     member_id        bigint      not null,
     post_status      post_status not null default 'active',
-    title            varchar(255) not null,
+    title            varchar(255),
     content          text        not null,
     location         varchar(255),
     reply_post_id    bigint,
@@ -565,6 +565,8 @@ create table tbl_post_temp (
     id                bigint       generated always as identity primary key,
     member_id         bigint       not null,
     post_temp_content text         not null,
+    post_temp_location text,
+    post_temp_tags text,
     created_datetime  timestamp    not null default now(),
     updated_datetime  timestamp    not null default now(),
     constraint fk_post_temp_member foreign key(member_id) references tbl_member(id)
