@@ -26,12 +26,6 @@ public class BookmarkService {
     }
 
     //    폴더 수정
-    @Caching(
-            evict = {
-                    @CacheEvict(value = "bookmark:folder", key = "#bookmarkFolderDTO.id"),
-                    @CacheEvict(value = "bookmark:folder:list", allEntries = true)
-            }
-    )
     public void updateFolder(BookmarkFolderDTO bookmarkFolderDTO) {
         bookmarkFolderDAO.update(bookmarkFolderDTO);
     }
@@ -48,7 +42,6 @@ public class BookmarkService {
     }
 
     //    폴더 단건 조회
-    @Cacheable(value = "bookmark:folder", key = "#id")
     public Optional<BookmarkFolderDTO> getFolder(Long id) {
         return bookmarkFolderDAO.findById(id);
     }
@@ -87,7 +80,6 @@ public class BookmarkService {
     }
 
     //    북마크 단건 조회
-    @Cacheable(value = "bookmark", key = "#id")
     public Optional<BookmarkDTO> getBookmark(Long id) {
         return bookmarkDAO.findById(id);
     }
@@ -116,7 +108,6 @@ public class BookmarkService {
     }
 
     //    북마크 개수 조회
-    @Cacheable(value = "bookmark:list", key = "'count:' + #memberId")
     public int getBookmarkCount(Long memberId) {
         return bookmarkDAO.countByMemberId(memberId);
     }
