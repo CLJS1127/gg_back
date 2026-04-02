@@ -19,6 +19,8 @@ public interface MemberMapper {
     public Optional<MemberDTO> selectMemberForLogin(MemberVO memberVO);
     //  입력받은 이메일 혹은 핸드폰번호를 조회
     Optional<MemberDTO> selectMemberByLoginId(String loginId);
+    //  상태와 무관하게 입력받은 이메일 혹은 핸드폰번호를 조회
+    Optional<MemberDTO> selectMemberByLoginIdAnyStatus(String loginId);
     //  이메일로 조회
     public Optional<MemberDTO> selectMemberByMemberEmail(String memberEmail);
     //  핸드폰 번호로 조회
@@ -37,8 +39,22 @@ public interface MemberMapper {
     public void delete(Long memberId);
     //  memberId로 soft delete
     public void softDelete(Long memberId);
+    //  memberId로 active 복구
+    public void reactivate(Long memberId);
     //  프로필 수정
     public void update(MemberDTO memberDTO);
+    //  비밀번호 변경
+    public void updatePassword(@Param("id") Long id, @Param("memberPassword") String memberPassword);
+    //  handle 변경
+    public void updateHandle(@Param("id") Long id, @Param("memberHandle") String memberHandle);
+    //  휴대폰 번호 변경
+    public void updatePhone(@Param("id") Long id, @Param("memberPhone") String memberPhone);
+    //  이메일 변경
+    public void updateEmail(@Param("id") Long id, @Param("memberEmail") String memberEmail);
+    //  언어 변경
+    public void updateLanguage(@Param("id") Long id, @Param("memberLanguage") String memberLanguage);
+    //  푸시 알림 master on/off 변경
+    public void updatePushEnabled(@Param("id") Long id, @Param("pushEnabled") boolean pushEnabled);
     //  Handle로 조회 (간소화)
     public Optional<MemberDTO> selectMemberByHandle(String memberHandle);
     //  채팅 유저 검색 (차단 사용자 제외)

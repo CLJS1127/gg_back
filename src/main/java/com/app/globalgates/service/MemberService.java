@@ -2,6 +2,7 @@ package com.app.globalgates.service;
 
 import com.app.globalgates.aop.annotation.LogStatusWithReturn;
 import com.app.globalgates.common.enumeration.FileContentType;
+import com.app.globalgates.common.enumeration.Status;
 import com.app.globalgates.common.enumeration.ProfileImageType;
 import com.app.globalgates.common.exception.MemberLoginFailException;
 import com.app.globalgates.common.exception.MemberNotFoundException;
@@ -10,6 +11,8 @@ import com.app.globalgates.dto.*;
 import com.app.globalgates.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -35,6 +38,7 @@ public class MemberService {
     private final CategoryMemberDAO categoryMemberDAO;
     private final CategoryDAO categoryDAO;
     private final OAuthDAO oAuthDAO;
+    private final NotificationPreferenceDAO notificationPreferenceDAO;
     private final PasswordEncoder passwordEncoder;
 
     //  일반 회원가입
@@ -178,10 +182,343 @@ public class MemberService {
         return memberDAO.findMemberByMemberPhone(memberPhone).isEmpty();
     }
 
+    // 현재 로그인한 사용자의 raw password가 DB의 encoded password와 일치하는지 검사한다.
+    // 기존 "중복검사" 계열 메서드와 달리, 이 메서드는 인증 성공 여부를 그대로 true/false로 돌려준다.
+    public boolean checkPassword(String loginId, String memberPassword){
+        MemberDTO member = memberDAO.findMemberByLoginId(loginId)
+                .orElseThrow(MemberNotFoundException::new);
+
+        return passwordEncoder.matches(memberPassword, member.getMemberPassword());
+    }
+
+    @Transactional
+    public void updatePassword(String loginId, String currentPassword, String nextPassword) {
+        MemberDTO member = memberDAO.findMemberByLoginId(loginId)
+                .orElseThrow(MemberNotFoundException::new);
+
+        if (!passwordEncoder.matches(currentPassword, member.getMemberPassword())) {
+            throw new IllegalArgumentException("현재 비밀번호를 다시 확인하세요.");
+        }
+
+        memberDAO.updatePassword(member.getId(), passwordEncoder.encode(nextPassword));
+    }
     //  handle 검사(true : 사용가능)
     public boolean checkHandle(String memberHandle){
         // DB에는 @가 포함된 형태로 저장되므로 조회 시에도 동일한 형태로 맞춘다.
         return memberDAO.findMemberByMemberHandle("@" + memberHandle).isEmpty();
+    }
+
+    @Transactional
+    @CachePut(value="member", key="#loginId")
+    public void updateHandle(String loginId, String memberHandle) {
+        MemberDTO member = memberDAO.findMemberByLoginId(loginId)
+                .orElseThrow(MemberNotFoundException::new);
+
+        // 입력창은 @ 없이 raw handle만 다루고, DB 저장 직전에만 프로젝트 저장 포맷으로 맞춘다.
+        String normalizedHandle = memberHandle == null ? "" : memberHandle.trim().replaceFirst("^@+", "");
+
+        if (normalizedHandle.isEmpty()) {
+            throw new IllegalArgumentException("아이디를 입력하세요.");
+        }
+
+        if (!normalizedHandle.matches("^[a-z0-9_]{4,15}$")) {
+            throw new IllegalArgumentException("영문 소문자, 숫자, 밑줄(_) 4~15자만 사용할 수 있습니다.");
+        }
+
+        String savedHandle = "@" + normalizedHandle;
+
+        // 현재 본인 값과 같으면 중복이나 저장 오류로 보지 않고 그대로 통과시킨다.
+        if (savedHandle.equals(member.getMemberHandle())) {
+            return;
+        }
+
+        if (memberDAO.findMemberByMemberHandle(savedHandle).isPresent()) {
+            throw new IllegalArgumentException("이미 사용 중인 아이디입니다.");
+        }
+
+        memberDAO.updateHandle(member.getId(), savedHandle);
+    }
+
+    @Transactional
+    @CachePut(value="member", key="#loginId")
+    public void updatePhone(String loginId, String memberPhone) {
+        MemberDTO member = memberDAO.findMemberByLoginId(loginId)
+                .orElseThrow(MemberNotFoundException::new);
+
+        // 전화번호 입력은 화면에서 하이픈이 섞일 수 있으므로 저장 전에 숫자만 남겨 정규화한다.
+        String normalizedPhone = memberPhone == null ? "" : memberPhone.replaceAll("\\D", "");
+
+        if (normalizedPhone.isEmpty()) {
+            throw new IllegalArgumentException("휴대폰 번호를 입력하세요.");
+        }
+
+        if (!normalizedPhone.matches("^01[0-9]{8,9}$")) {
+            throw new IllegalArgumentException("올바른 휴대폰 번호 형식을 확인하세요.");
+        }
+
+        if (normalizedPhone.equals(member.getMemberPhone())) {
+            return;
+        }
+
+        if (memberDAO.findMemberByMemberPhone(normalizedPhone).isPresent()) {
+            throw new IllegalArgumentException("이미 사용 중인 휴대폰 번호입니다.");
+        }
+
+        memberDAO.updatePhone(member.getId(), normalizedPhone);
+    }
+
+    @Transactional
+    @CachePut(value="member", key="#loginId")
+    public void updateEmail(String loginId, String memberEmail) {
+        MemberDTO member = memberDAO.findMemberByLoginId(loginId)
+                .orElseThrow(MemberNotFoundException::new);
+
+        // 이메일 입력은 앞뒤 공백과 대소문자 차이로 같은 값이 중복 저장되지 않게 정규화한다.
+        String normalizedEmail = memberEmail == null ? "" : memberEmail.trim().toLowerCase();
+
+        if (normalizedEmail.isEmpty()) {
+            throw new IllegalArgumentException("이메일을 입력하세요.");
+        }
+
+        if (!normalizedEmail.matches("^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$")) {
+            throw new IllegalArgumentException("올바른 이메일 형식을 확인하세요.");
+        }
+
+        if (normalizedEmail.equals(member.getMemberEmail())) {
+            return;
+        }
+
+        if (memberDAO.findMemberByMemberEmail(normalizedEmail).isPresent()) {
+            throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
+        }
+
+        memberDAO.updateEmail(member.getId(), normalizedEmail);
+    }
+
+    // setting 언어 모달은 하드코딩된 선택지에서 단일 라벨 문자열만 넘어오는 구조다.
+    // getMember(loginId)는 캐시를 사용하므로 저장 후에는 현재 사용자의 member 캐시를 비워
+    // 다음 setting 진입이나 새로고침 시 최신 언어가 다시 내려오게 만든다.
+    @Transactional
+    @CachePut(value="member", key="#loginId")
+    public void updateLanguage(String loginId, String memberLanguage) {
+        MemberDTO member = memberDAO.findMemberByLoginId(loginId)
+                .orElseThrow(MemberNotFoundException::new);
+
+        String normalizedLanguage = memberLanguage == null ? "" : memberLanguage.trim();
+
+        if (normalizedLanguage.isEmpty()) {
+            throw new IllegalArgumentException("언어를 선택하세요.");
+        }
+
+        if (normalizedLanguage.equals(member.getMemberLanguage())) {
+            return;
+        }
+
+        memberDAO.updateLanguage(member.getId(), normalizedLanguage);
+    }
+
+    // 푸시 master on/off는 "전체 preset" 역할을 한다.
+    // 따라서 master를 켜면 상세 push도 전부 true, 끄면 상세 push도 전부 false로 함께 맞춘다.
+    // void 반환 메서드에서는 CachePut보다 CacheEvict가 안전하므로 다음 조회에서 최신 member를 다시 읽게 만든다.
+    @Transactional
+    @CacheEvict(value="member", key="#loginId")
+    public void updatePushEnabled(String loginId, boolean pushEnabled) {
+        MemberDTO member = memberDAO.findMemberByLoginId(loginId)
+                .orElseThrow(MemberNotFoundException::new);
+
+        memberDAO.updatePushEnabled(member.getId(), pushEnabled);
+
+        NotificationPreferenceDTO current = notificationPreferenceDAO.findByMemberId(member.getId())
+                .orElseGet(() -> createDefaultNotificationPreference(member));
+
+        current.setPushConnect(pushEnabled);
+        current.setPushExpert(pushEnabled);
+        current.setPushLikes(pushEnabled);
+        current.setPushPosts(pushEnabled);
+        current.setPushComments(pushEnabled);
+        current.setPushChatMessages(pushEnabled);
+        current.setPushQuotes(pushEnabled);
+        current.setPushSystem(pushEnabled);
+        current.setPushMentions(pushEnabled);
+
+        notificationPreferenceDAO.save(current);
+    }
+
+    public NotificationPreferenceDTO getNotificationPreference(String loginId) {
+        MemberDTO member = memberDAO.findMemberByLoginId(loginId)
+                .orElseThrow(MemberNotFoundException::new);
+
+        return notificationPreferenceDAO.findByMemberId(member.getId())
+                .orElseGet(() -> createDefaultNotificationPreference(member));
+    }
+
+    // 회원가입(join) 단계에서 이미 pushEnabled=true/false가 저장되므로,
+    // 상세 푸시 알림 기본값은 그 선택을 그대로 따라간다.
+    // 반면 quality filter와 muted 옵션은 "누구의 알림을 걸러낼지"에 대한 축이라 별도 기본값을 유지한다.
+    private NotificationPreferenceDTO createDefaultNotificationPreference(MemberDTO member) {
+        boolean pushEnabled = member.isPushEnabled();
+
+        NotificationPreferenceDTO dto = new NotificationPreferenceDTO();
+        dto.setMemberId(member.getId());
+
+        dto.setQualityFilterEnabled(true);
+
+        dto.setMutedNonFollowing(false);
+        dto.setMutedNotFollowingYou(false);
+        dto.setMutedNewAccount(false);
+        dto.setMutedDefaultProfile(false);
+        dto.setMutedUnverifiedEmail(false);
+        dto.setMutedUnverifiedPhone(false);
+
+        dto.setPushConnect(pushEnabled);
+        dto.setPushExpert(pushEnabled);
+        dto.setPushLikes(pushEnabled);
+        dto.setPushPosts(pushEnabled);
+        dto.setPushComments(pushEnabled);
+        dto.setPushChatMessages(pushEnabled);
+        dto.setPushQuotes(pushEnabled);
+        dto.setPushSystem(pushEnabled);
+        dto.setPushMentions(pushEnabled);
+
+        return dto;
+    }
+
+    @Transactional
+    public void updateNotificationFilter(String loginId, NotificationPreferenceDTO request) {
+        MemberDTO member = memberDAO.findMemberByLoginId(loginId)
+                .orElseThrow(MemberNotFoundException::new);
+
+        NotificationPreferenceDTO current = notificationPreferenceDAO.findByMemberId(member.getId())
+                .orElseGet(() -> createDefaultNotificationPreference(member));
+
+        // filter 저장은 quality/muted 관련 필드만 바꿔
+        // push 상세 체크 상태를 다른 화면 저장에서 덮어쓰지 않게 유지한다.
+        current.setQualityFilterEnabled(request.isQualityFilterEnabled());
+        current.setMutedNonFollowing(request.isMutedNonFollowing());
+        current.setMutedNotFollowingYou(request.isMutedNotFollowingYou());
+        current.setMutedNewAccount(request.isMutedNewAccount());
+        current.setMutedDefaultProfile(request.isMutedDefaultProfile());
+        current.setMutedUnverifiedEmail(request.isMutedUnverifiedEmail());
+        current.setMutedUnverifiedPhone(request.isMutedUnverifiedPhone());
+
+        notificationPreferenceDAO.save(current);
+    }
+
+    @Transactional
+    @CacheEvict(value="member", key="#loginId")
+    public void updateNotificationPushPreference(String loginId, NotificationPreferenceDTO request) {
+        MemberDTO member = memberDAO.findMemberByLoginId(loginId)
+                .orElseThrow(MemberNotFoundException::new);
+
+        NotificationPreferenceDTO current = notificationPreferenceDAO.findByMemberId(member.getId())
+                .orElseGet(() -> createDefaultNotificationPreference(member));
+
+        // push 상세 저장은 푸시 체크 관련 필드만 바꿔
+        // 필터/뮤트 조건이 섹션 간 저장 때문에 사라지지 않게 만든다.
+        current.setPushConnect(request.isPushConnect());
+        current.setPushExpert(request.isPushExpert());
+        current.setPushLikes(request.isPushLikes());
+        current.setPushPosts(request.isPushPosts());
+        current.setPushComments(request.isPushComments());
+        current.setPushChatMessages(request.isPushChatMessages());
+        current.setPushQuotes(request.isPushQuotes());
+        current.setPushSystem(request.isPushSystem());
+        current.setPushMentions(request.isPushMentions());
+
+        // 상세 push 저장은 개별 체크 상태를 그대로 반영하되,
+        // 최종적으로 하나도 선택되지 않으면 master push_enabled도 false로 맞춘다.
+        boolean hasEnabledPushAlert =
+                current.isPushConnect()
+                        || current.isPushExpert()
+                        || current.isPushLikes()
+                        || current.isPushPosts()
+                        || current.isPushComments()
+                        || current.isPushChatMessages()
+                        || current.isPushQuotes()
+                        || current.isPushSystem()
+                        || current.isPushMentions();
+
+        memberDAO.updatePushEnabled(member.getId(), hasEnabledPushAlert);
+        notificationPreferenceDAO.save(current);
+    }
+
+    // 계정 비활성화는 현재 로그인 사용자의 비밀번호를 다시 확인한 뒤 soft delete로 처리한다.
+    // getMember/login 계열이 member 캐시를 사용할 수 있으므로 비활성화 후에는 캐시도 함께 비운다.
+    @Transactional
+    @CacheEvict(value="member", key="#loginId")
+    public void deactivateMember(String loginId, String memberPassword) {
+        MemberDTO member = memberDAO.findMemberByLoginId(loginId)
+                .orElseThrow(MemberNotFoundException::new);
+
+        String normalizedPassword = memberPassword == null ? "" : memberPassword.trim();
+
+        if (normalizedPassword.isEmpty()) {
+            throw new IllegalArgumentException("비밀번호를 입력하세요.");
+        }
+
+        if (!passwordEncoder.matches(normalizedPassword, member.getMemberPassword())) {
+            throw new IllegalArgumentException("비밀번호를 다시 확인하세요.");
+        }
+
+        memberDAO.softDelete(member.getId());
+    }
+
+    // 재활성화는 active 조회를 쓰지 않고, 상태와 무관한 로그인 식별값 조회로 시작해야 한다.
+    // 그래야 inactive 회원을 일반 로그인과 분리해서 별도 복구 흐름으로 보낼 수 있다.
+    public MemberDTO getInactiveMemberForReactivation(String loginId, String memberPassword) {
+        MemberDTO member = memberDAO.findMemberByLoginIdAnyStatus(loginId)
+                .orElseThrow(() -> new IllegalArgumentException("입력한 정보가 일치하지 않습니다."));
+
+        if (member.getMemberStatus() != Status.INACTIVE) {
+            throw new IllegalArgumentException("재활성화 가능한 계정을 찾지 못했습니다.");
+        }
+
+        if (!passwordEncoder.matches(memberPassword, member.getMemberPassword())) {
+            throw new IllegalArgumentException("입력한 정보가 일치하지 않습니다.");
+        }
+
+        return member;
+    }
+
+    public String getMaskedReactivationTarget(String loginId, MemberDTO member) {
+        // 재활성화 안내 화면은 실제 연락처 전체를 보여줄 필요가 없으므로
+        // 로그인에 사용한 식별자 채널만 남기고 마스킹된 문자열로 내려준다.
+        if (loginId != null && loginId.contains("@")) {
+            String email = member.getMemberEmail();
+
+            if (email == null || !email.contains("@")) {
+                return "가입된 이메일";
+            }
+
+            String[] parts = email.split("@", 2);
+            String local = parts[0];
+
+            if (local.length() <= 2) {
+                return local.charAt(0) + "*@" + parts[1];
+            }
+
+            return local.substring(0, 2)
+                    + "*".repeat(local.length() - 2)
+                    + "@"
+                    + parts[1];
+        }
+
+        String phone = member.getMemberPhone();
+
+        if (phone == null || phone.length() < 8) {
+            return "가입된 휴대폰 번호";
+        }
+
+        return phone.substring(0, 3) + "-****-" + phone.substring(phone.length() - 4);
+    }
+
+    // inactive 계정 복구는 상태만 active로 되돌리면 되고,
+    // 이후 인증/토큰 발급은 기존 로그인과 같은 보안 흐름을 컨트롤러가 이어서 마무리한다.
+    @Transactional
+    @CacheEvict(value="member", key="#loginId")
+    public void reactivateMember(String loginId, String memberPassword) {
+        MemberDTO member = getInactiveMemberForReactivation(loginId, memberPassword);
+        memberDAO.reactivate(member.getId());
     }
 
     //    로그인
