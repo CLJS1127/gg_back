@@ -1,5 +1,7 @@
 package com.app.globalgates.service;
 
+import com.app.globalgates.aop.annotation.LogStatus;
+import com.app.globalgates.aop.annotation.LogStatusWithReturn;
 import com.app.globalgates.common.enumeration.FileContentType;
 import com.app.globalgates.common.pagination.Criteria;
 import com.app.globalgates.domain.CommunityVO;
@@ -42,6 +44,7 @@ public class CommunityService {
 
 
     @CacheEvict(value = "community:list", allEntries = true)
+    @LogStatus
     public void createCommunity(CommunityDTO dto, MultipartFile coverImage) throws IOException {
         communityDAO.save(dto);
 
@@ -90,6 +93,7 @@ public class CommunityService {
             @CacheEvict(value = "community:member:list", allEntries = true),
             @CacheEvict(value = "community:post:list", allEntries = true)
     })
+    @LogStatus
     public void deleteCommunity(Long communityId, Long requesterId) {
         CommunityDTO community = communityDAO.findById(communityId, requesterId)
                 .orElseThrow(() -> new IllegalStateException("커뮤니티를 찾을 수 없습니다."));
@@ -194,6 +198,7 @@ public class CommunityService {
             @CacheEvict(value = "community:member:list", allEntries = true),
             @CacheEvict(value = "community:list", allEntries = true)
     })
+    @LogStatus
     public void joinCommunity(Long communityId, Long memberId) {
         communityMemberDAO.findByIds(communityId, memberId).ifPresent(m -> {
             throw new IllegalStateException("이미 가입한 커뮤니티입니다.");
@@ -211,6 +216,7 @@ public class CommunityService {
             @CacheEvict(value = "community:member:list", allEntries = true),
             @CacheEvict(value = "community:list", allEntries = true)
     })
+    @LogStatus
     public void leaveCommunity(Long communityId, Long memberId) {
         communityMemberDAO.findByIds(communityId, memberId)
                 .orElseThrow(() -> new IllegalStateException("가입하지 않은 커뮤니티입니다."));
@@ -283,6 +289,7 @@ public class CommunityService {
     // ──────────────────────────────────────
 
     @CacheEvict(value = {"post:list", "post", "page:search", "community:post:list"}, allEntries = true)
+    @LogStatus
     public void writeCommunityPost(PostDTO postDTO, List<MultipartFile> files, Long communityId) throws IOException {
         communityMemberDAO.findByIds(communityId, postDTO.getMemberId())
                 .orElseThrow(() -> new IllegalStateException("커뮤니티 멤버만 게시글을 작성할 수 있습니다."));

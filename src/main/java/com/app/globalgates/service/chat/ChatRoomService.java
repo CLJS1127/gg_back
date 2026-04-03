@@ -1,5 +1,7 @@
 package com.app.globalgates.service.chat;
 
+import com.app.globalgates.aop.annotation.LogStatus;
+import com.app.globalgates.aop.annotation.LogStatusWithReturn;
 import com.app.globalgates.dto.chat.ChatReadReceiptDTO;
 import com.app.globalgates.dto.chat.ChatRoomDTO;
 import com.app.globalgates.repository.chat.ChatRoomDAO;
@@ -24,6 +26,7 @@ public class ChatRoomService {
 
 //    채팅방 생성 또는 기존 방 반환
     @Transactional
+    @LogStatusWithReturn
     public ChatRoomDTO createOrGetRoom(String title, Long senderId, Long invitedId) {
         Optional<ChatRoomDTO> existing = chatRoomDAO.findByMembers(senderId, invitedId);
         if (existing.isPresent()) {
@@ -104,6 +107,7 @@ public class ChatRoomService {
 
 //    대화방 soft delete
     @Transactional
+    @LogStatus
     public void softDeleteConversation(Long conversationId, Long memberId) {
         chatRoomDAO.softDeleteConversation(conversationId, memberId);
     }
