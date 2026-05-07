@@ -1498,13 +1498,6 @@
 
 
     const openNewsAutoSettings = () => {
-        pages.forEach((page) => {
-            page.classList.remove("active");
-        });
-        portals.forEach((eachPortal) => {
-            eachPortal.classList.remove("active");
-        });
-        newsSettingsBtn?.classList.add("active");
         modalNewsAutoSettings.classList.remove("off");
     };
 
