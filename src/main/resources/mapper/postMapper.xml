@@ -46,7 +46,7 @@
           and not exists (select 1 from tbl_post_product pp where pp.id = v.id)
         order by v.created_datetime desc
         limit #{criteria.count}
-            offset #{criteria.offset}
+        offset #{criteria.offset}
     </select>
 
     <update id="update">

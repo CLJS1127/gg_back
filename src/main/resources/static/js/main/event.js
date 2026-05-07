@@ -50,12 +50,12 @@ window.onload = () => {
         });
     };
 
-    const loadFeed = () => {
-        service.getPostList(postPage, memberId, (data) => {
-            const posts = layout.showPostList(data.posts, postPage);
-            initFollowState(posts);
-            postHasMore = data.criteria.hasMore;
-        });
+    const loadFeed = async () => {
+        const postData = await service.getPostList(postPage, memberId);
+        const ads = await service.getAds(postPage, 3);
+        const posts = layout.showPostList(postData.posts, ads, postPage);
+        initFollowState(posts);
+        postHasMore = postData.criteria.hasMore;
     };
 
     window.addEventListener("scroll", async (e) => {
@@ -65,11 +65,11 @@ window.onload = () => {
         if (activeTab === "feed" && postCheckScroll && postHasMore) {
             postCheckScroll = false;
             postPage++;
-            await service.getPostList(postPage, memberId, (data) => {
-                const posts = layout.showPostList(data.posts, postPage);
-                initFollowState(posts);
-                postHasMore = data.criteria.hasMore;
-            });
+            const postData = await service.getPostList(postPage, memberId);
+            const ads = await service.getAds(postPage, 3);
+            const posts = layout.showPostList(postData.posts, ads, postPage);
+            initFollowState(posts);
+            postHasMore = postData.criteria.hasMore;
             setTimeout(() => { postCheckScroll = true; }, 1000);
         }
 
@@ -142,8 +142,8 @@ window.onload = () => {
 
     // 피드 카드가 새로 그려진 뒤에 sessionStorage 변경분을 한번 더 입혀준다.
     const _origShowPostList = layout.showPostList;
-    layout.showPostList = function (posts, page) {
-        const result = _origShowPostList(posts, page);
+    layout.showPostList = function (posts, ads, page) {
+        const result = _origShowPostList(posts, ads, page);
         applyPostStateChanges();
         return result;
     };
@@ -931,13 +931,13 @@ window.onload = () => {
 
 
     // 작성/답글 모달 — 한번 호출로 양쪽 처리 마크업 없으면 자동 skip
-    const refreshFeed = () => {
+    const refreshFeed = async () => {
         postPage = 1;
-        service.getPostList(postPage, memberId, (data) => {
-            const posts = layout.showPostList(data.posts, postPage);
-            initFollowState(posts);
-            postHasMore = data.criteria.hasMore;
-        });
+        const postData = await service.getPostList(postPage, memberId);
+        const ads = await service.getAds(postPage, 3);
+        const posts = layout.showPostList(postData.posts, ads, postPage);
+        initFollowState(posts);
+        postHasMore = postData.criteria.hasMore;
     };
     postModalApi.bootstrap({
         services: service,
@@ -1041,13 +1041,7 @@ window.onload = () => {
             el.innerHTML = `<img src="/images/profile/default_image.png" alt="" />`;
         });
 
-        service.getAds((ads) => {
-            layout.setAds(ads || []);
-            loadFeed();
-        }).catch((err) => {
-            console.error("광고 로딩 실패:", err);
-            loadFeed();
-        });
+        loadFeed();
 
         if (suggestionContainer) {
             service.getSuggestions(memberId, (members) => {
